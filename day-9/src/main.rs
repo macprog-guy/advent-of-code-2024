@@ -61,5 +61,72 @@ fn main() {
         .map(|(i, file_id)| i * *file_id)
         .sum();
 
-    println!("Checksum = {}", checksum);
+    println!("Checksum 1 = {}\n\n", checksum);
+
+
+    // ----------------------------------------------------------------------
+    // Part II
+    // ----------------------------------------------------------------------
+
+    #[derive(Debug)]
+    enum Block {
+        File(usize, u8),
+        Empty(u8),
+    }
+
+    impl Block {
+        pub fn free_space(&self) -> u8 {
+            match self {
+                Self::File(_,_) =>  0,
+                Self::Empty(n)  => *n,
+            }
+        }
+        pub fn fill_space(&mut self, k: u8) {
+            if let Self::Empty(n) = self {
+                *n -= k;
+            }
+        }
+    }
+
+    let mut blocks: Vec<Block> = Vec::default();
+
+    let chunks = map.chunks_exact(2);
+
+    for (i, chunk) in chunks.enumerate() {
+        blocks.push(Block::File(i, chunk[0] -  b'0'));
+        blocks.push(Block::Empty(chunk[1] - b'0'));
+    }
+
+    // Handle odd block
+    if map.len() % 2 == 1 {
+        blocks.push(Block::File(blocks.len()/2, map[map.len()-1] - b'0'));
+    }
+
+    for j in (0..blocks.len()).rev() {
+        if let Block::File(id, n) = blocks[j] {
+            if let Some(i) = blocks.iter().position(|b| b.free_space() >= n) {
+                if i < j {                                        
+                    blocks[i].fill_space(n);
+                    blocks[j] = Block::Empty(n);
+                    blocks.insert(i, Block::File(id, n));                    
+                }
+            }
+        }
+    }
+
+    let defrag:Vec<_> = blocks.iter()
+        .flat_map(|block| {
+            match block {
+                Block::File(id, n) => repeat_n(*id, *n as usize),
+                Block::Empty(n)    => repeat_n(0, *n as usize),
+            }
+        })
+        .collect();
+
+    let checksum:usize = defrag.iter()
+        .enumerate()
+        .map(|(i, file_id)| i * *file_id)
+        .sum();
+
+    println!("Checksum 2 = {}", checksum);
 }
