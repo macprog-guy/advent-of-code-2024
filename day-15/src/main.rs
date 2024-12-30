@@ -10,6 +10,18 @@ enum Heading {
     West,
 }
 
+impl Heading {
+    pub fn inverse(&self) -> Self {
+        use Heading::*;
+        match self {
+            North => South,
+            East  => West,
+            South => North,
+            West  => East,
+        }
+    }
+}
+
 impl TryFrom<u8> for Heading {
     type Error = &'static str;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
@@ -37,6 +49,15 @@ impl IVec2 {
             East  => Self { x: self.x+1, y: self.y },
             South => Self { x: self.x, y: self.y+1 },
             West  => Self { x: self.x-1, y: self.y },
+        }
+    }
+    pub fn jump(&self, head: Heading) -> Self {
+        use Heading::*;
+        match head {
+            North => Self { x: self.x, y: self.y-2 },
+            East  => Self { x: self.x+2, y: self.y },
+            South => Self { x: self.x, y: self.y+2 },
+            West  => Self { x: self.x-2, y: self.y },
         }
     }
 }
@@ -132,7 +153,6 @@ fn main() {
     }
     
     room[robot_pos.into()] = b'.';
-
     for head_byte in &headings {
 
         let direction = Heading::try_from(*head_byte)
@@ -142,28 +162,26 @@ fn main() {
         let next_pos = robot_pos.head(direction);
 
         match room[next_pos.into()] {
-            b'.' => { 
+            b'.' => {
                 println!("Found empty space. Moving there.");
-                robot_pos = next_pos; 
+                robot_pos = next_pos;
             }
-            b'['|b']' => {
+            b'[' | b']' => {
                 if push_big_boxes(next_pos, direction, &mut room) {
                     println!("Found a box. Pushing it.");
                     robot_pos = next_pos;
                 } else {
                     println!("Found a box. But it's stuck!");
                 }
-            },            
+            },
             _ => { }
         }
     }
 
-    let sum: usize = room.rows_iter()
+    let sum: usize = room
+        .rows_iter()
         .enumerate()
-        .flat_map(|(y, row)|
-            row.enumerate()
-            .filter_map(move |(x, c)| (*c == b'O').then_some(100*y+x))
-        )
+        .flat_map(|(y, row)| row.enumerate().filter_map(move |(x, c)| (*c == b'O').then_some(100*y+x)))
         .sum();
 
     println!("Part #2, sum of GPS Coords: {}\n", sum);
@@ -178,7 +196,7 @@ fn push_big_boxes(box_pos: IVec2, dir: Heading, room: &mut Array2D<u8>) -> bool 
 
     match room[next_idx] {
         b'[' if dir == East => {
-            if push_big_boxes(next_pos.head(dir).head(dir), dir, room) {
+            if push_big_boxes(next_pos.jump(dir), dir, room) {
                 room[box_pos.into()] = b'.';
                 room[next_pos.into()] = b'[';
                 room[next_pos.head(dir).into()] = b']';
@@ -188,7 +206,7 @@ fn push_big_boxes(box_pos: IVec2, dir: Heading, room: &mut Array2D<u8>) -> bool 
             }     
         }
         b']' if dir == West => {
-            if push_big_boxes(next_pos.head(dir).head(dir), dir, room) {
+            if push_big_boxes(next_pos.jump(dir), dir, room) {
                 room[box_pos.into()] = b'.';
                 room[next_pos.into()] = b']';
                 room[next_pos.head(dir).into()] = b'[';
@@ -220,8 +238,9 @@ fn push_big_boxes(box_pos: IVec2, dir: Heading, room: &mut Array2D<u8>) -> bool 
             }
         }
         b'.' => {
+            let inv_dir = dir.inverse();
             room[box_pos.into()] = b'.';
-            room[next_pos.into()] = b'[';
+            room[box_pos.into()] = b'[';
             room[next_pos.head(dir).into()] = b']';
             true
         }
